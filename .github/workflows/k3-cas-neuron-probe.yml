@@ -1,0 +1,48 @@
+name: K3 CAS neuron probe
+
+on:
+  push:
+    branches:
+      - k3-cas-neuron-probe-20260926
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      OPENBLAS_NUM_THREADS: "2"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+      NUMEXPR_NUM_THREADS: "2"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install NumPy
+        run: python -m pip install --upgrade "numpy<3"
+      - name: Fetch audited K3 NumPy reference
+        run: |
+          curl -L --fail --retry 5 \
+            https://raw.githubusercontent.com/JustVugg/colibri/ce370e87d7b623d7759b52ec2007d75fc5b0e87e/c/tools/k3_ref.py \
+            -o k3_ref.py
+          python -m py_compile k3_ref.py k3_neuron_probe.py
+      - name: Run real K3 activation-conditioned neuron probe
+        run: |
+          python k3_neuron_probe.py \
+            --tokens 4 \
+            --cache work/cache \
+            --out work/result
+      - name: Preserve measurement artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: k3-cas-layer1-t4
+          path: |
+            work/result/result.json
+            work/result/REPORT.md
+          if-no-files-found: error
+          retention-days: 30
